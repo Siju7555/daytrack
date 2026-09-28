@@ -52,10 +52,14 @@ input,select{width:100%;background:#0b1020;color:white;border:1px solid #34405b;
 <div id="detailModal" class="modal"><div class="box">
   <h2 id="detailTitle"></h2>
   <div id="stats" class="stats"></div>
-  <div class="section-title">Frequency</div>
-  <div id="frequency" class="quickstats"></div>
-  <div class="section-title">Last 6 months</div>
+  <div class="section-title">Year details</div>
+  <label>Select year</label><select id="yearSelect" onchange="renderYearDetails()"></select>
+  <div id="yearSummary" class="stats"></div>
+  <div class="section-title">Monthly breakdown</div>
   <div id="chart" class="chart"></div>
+  <div id="monthList" style="margin-top:10px"></div>
+  <div class="section-title">Current frequency</div>
+  <div id="frequency" class="quickstats"></div>
   <div class="actions"><button class="primary" onclick="doneNow()">Done now</button><button class="secondary" onclick="openPastRecord()">Add past record</button></div>
   <div class="section-title">History</div>
   <div id="history"></div>
@@ -89,7 +93,36 @@ function recordDates(task){return(task.history||[]).map(x=>new Date(x.date+"T"+(
 function startOfWeek(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setHours(0,0,0,0);x.setDate(x.getDate()-day);return x}
 function countSince(task,from){return recordDates(task).filter(d=>d>=from&&d<=new Date()).length}
 function counts(task){const now=new Date(),week=startOfWeek(now),month=new Date(now.getFullYear(),now.getMonth(),1),d30=new Date(now.getTime()-30*86400000);return{week:countSince(task,week),month:countSince(task,month),d30:countSince(task,d30)}}
-function monthlyCounts(task){const now=new Date(),out=[];for(let i=5;i>=0;i--){const y=now.getFullYear(),m=now.getMonth()-i;const first=new Date(y,m,1),next=new Date(y,m+1,1);const c=recordDates(task).filter(d=>d>=first&&d<next).length;out.push({label:first.toLocaleDateString(undefined,{month:"short"}),count:c})}return out}
+function availableYears(task){
+ const years=recordDates(task).map(d=>d.getFullYear());
+ if(task.startDate)years.push(new Date(task.startDate+"T12:00:00").getFullYear());
+ years.push(new Date().getFullYear());
+ return [...new Set(years)].sort((a,b)=>b-a)
+}
+function yearMonthCounts(task,year){
+ const dates=recordDates(task),out=[];
+ for(let m=0;m<12;m++){
+  const first=new Date(year,m,1),next=new Date(year,m+1,1);
+  out.push({label:first.toLocaleDateString(undefined,{month:"short"}),count:dates.filter(d=>d>=first&&d<next).length})
+ }
+ return out
+}
+function yearTotal(task,year){return recordDates(task).filter(d=>d.getFullYear()===year).length}
+function renderYearDetails(){
+ const task=data.tasks.find(t=>t.id===currentId);if(!task)return;
+ const select=document.getElementById("yearSelect");
+ const year=Number(select.value)||new Date().getFullYear(),prev=year-1;
+ const total=yearTotal(task,year),prevTotal=yearTotal(task,prev);
+ const diff=total-prevTotal;
+ document.getElementById("yearSummary").innerHTML=
+  '<div class="stat"><b>'+total+'</b><span>'+year+' total</span></div>'+
+  '<div class="stat"><b>'+prevTotal+'</b><span>'+prev+' total</span></div>'+
+  '<div class="stat"><b>'+(diff>0?"+":"")+diff+'</b><span>Change vs '+prev+'</span></div>'+
+  '<div class="stat"><b>'+(prevTotal?Math.round(diff/prevTotal*100)+"%":"—")+'</b><span>Percent change</span></div>';
+ const months=yearMonthCounts(task,year),max=Math.max(1,...months.map(x=>x.count));
+ document.getElementById("chart").innerHTML=months.map(x=>'<div class="bar-wrap"><div class="bar-count">'+x.count+'</div><div class="bar" style="height:'+(x.count/max*100)+'%"></div><div class="bar-label">'+x.label+'</div></div>').join("");
+ document.getElementById("monthList").innerHTML=months.map(x=>'<div class="history"><span>'+x.label+' '+year+'</span><b style="float:right">'+x.count+'</b></div>').join("")
+}
 function render(){
  const list=document.getElementById("list");list.innerHTML="";
  if(!data.tasks.length){list.innerHTML='<div class="muted">No trackers yet. Tap + to add one.</div>';return}
@@ -119,7 +152,10 @@ function showDetails(id){
  const ints=calculateIntervals(task),avg=ints.length?ints.reduce((a,b)=>a+b,0)/ints.length:null,shortest=ints.length?Math.min(...ints):null,longest=ints.length?Math.max(...ints):null,last=getLast(task),current=elapsedSince(last),c=counts(task);
  document.getElementById("stats").innerHTML='<div class="stat"><b>'+prettyGap(current)+'</b><span>Current gap</span></div><div class="stat"><b>'+(avg!=null?prettyGap(avg):"—")+'</b><span>Average gap</span></div><div class="stat"><b>'+(shortest!=null?prettyGap(shortest):"—")+'</b><span>Shortest gap</span></div><div class="stat"><b>'+(longest!=null?prettyGap(longest):"—")+'</b><span>Longest gap</span></div>';
  document.getElementById("frequency").innerHTML='<div class="q"><b>'+c.week+'</b><span>This week</span></div><div class="q"><b>'+c.month+'</b><span>This month</span></div><div class="q"><b>'+c.d30+'</b><span>Last 30 days</span></div>';
- const months=monthlyCounts(task),max=Math.max(1,...months.map(x=>x.count));document.getElementById("chart").innerHTML=months.map(x=>'<div class="bar-wrap"><div class="bar-count">'+x.count+'</div><div class="bar" style="height:'+(x.count/max*100)+'%"></div><div class="bar-label">'+x.label+'</div></div>').join("");
+ const ys=availableYears(task),sel=document.getElementById("yearSelect"),currentYear=new Date().getFullYear();
+ sel.innerHTML=ys.map(y=>'<option value="'+y+'">'+y+'</option>').join("");
+ sel.value=ys.includes(currentYear)?currentYear:ys[0];
+ renderYearDetails();
  const history=document.getElementById("history");history.innerHTML="";const rows=[...(task.history||[])].sort((a,b)=>makeTimestamp(b.date,b.time)-makeTimestamp(a.date,a.time));
  if(!rows.length)history.innerHTML='<div class="muted">No records yet.</div>';
  rows.forEach((item,index)=>{const next=rows[index+1],gap=next?" • "+prettyGap(gapHours(next,item)):"",originalIndex=task.history.indexOf(item),div=document.createElement("div");div.className="history";div.innerHTML=formatDateTime(item.date,item.time)+'<span class="small">'+gap+'</span><button class="danger" style="float:right;margin:0;padding:5px 8px" onclick="deleteRecord(\''+task.id+'\','+originalIndex+')">Delete</button>';history.appendChild(div)});
