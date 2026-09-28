@@ -60,12 +60,9 @@ input,select{width:100%;background:#0b1020;color:white;border:1px solid #34405b;
   <div class="section-title">History</div>
   <div id="history"></div>
 
-  <div class="section-title">Year comparison</div>
+  <div class="section-title">Year total</div>
   <label>Select year</label><select id="yearSelect" onchange="renderYearDetails()"></select>
   <div id="yearSummary" class="stats"></div>
-  <div class="section-title">Selected year by month</div>
-  <div id="yearChart" class="chart"></div>
-  <div id="monthList" style="margin-top:10px"></div>
 
   <div class="actions"><button class="secondary" onclick="editCurrent()">Edit tracker</button><button class="danger" onclick="deleteCurrent()">Delete tracker</button><button class="secondary" onclick="closeDetails()">Close</button></div>
 </div></div>
@@ -124,17 +121,10 @@ function yearTotal(task,year){return recordDates(task).filter(d=>d.getFullYear()
 function renderYearDetails(){
  const task=data.tasks.find(t=>t.id===currentId);if(!task)return;
  const select=document.getElementById("yearSelect");
- const year=Number(select.value)||new Date().getFullYear(),prev=year-1;
- const total=yearTotal(task,year),prevTotal=yearTotal(task,prev);
- const diff=total-prevTotal;
+ const year=Number(select.value)||new Date().getFullYear();
+ const total=yearTotal(task,year);
  document.getElementById("yearSummary").innerHTML=
-  '<div class="stat"><b>'+total+'</b><span>'+year+' total</span></div>'+
-  '<div class="stat"><b>'+prevTotal+'</b><span>'+prev+' total</span></div>'+
-  '<div class="stat"><b>'+(diff>0?"+":"")+diff+'</b><span>Change vs '+prev+'</span></div>'+
-  '<div class="stat"><b>'+(prevTotal?Math.round(diff/prevTotal*100)+"%":"—")+'</b><span>Percent change</span></div>';
- const months=yearMonthCounts(task,year),max=Math.max(1,...months.map(x=>x.count));
- document.getElementById("yearChart").innerHTML=months.map(x=>'<div class="bar-wrap"><div class="bar-count">'+x.count+'</div><div class="bar" style="height:'+(x.count/max*100)+'%"></div><div class="bar-label">'+x.label+'</div></div>').join("");
- document.getElementById("monthList").innerHTML=months.map(x=>'<div class="history"><span>'+x.label+' '+year+'</span><b style="float:right">'+x.count+'</b></div>').join("")
+  '<div class="stat" style="grid-column:1/-1;text-align:center"><b>'+total+'</b><span>'+year+' total</span></div>';
 }
 function render(){
  const list=document.getElementById("list");list.innerHTML="";
