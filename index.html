@@ -42,10 +42,18 @@ input,select{width:100%;background:#0b1020;color:white;border:1px solid #34405b;
 <div id="editModal" class="modal"><div class="box">
   <h2 id="formTitle">Add tracker</h2>
   <label>Code name</label><input id="name" placeholder="Example: A1, Blue, K2">
-  <label>Type</label><select id="type"><option value="since">Time since</option><option value="countdown">Countdown</option></select>
-  <div id="repeatBox" style="display:none"><label>Repeat every how many days?</label><input id="repeat" type="number" value="30" min="1"></div>
-  <label>Starting / last completed date</label><input id="date" type="date">
-  <label>Time</label><input id="time" type="time">
+  <label>Type</label>
+  <select id="type">
+    <option value="since">Time since</option>
+    <option value="countdown_once">Countdown</option>
+    <option value="repeat">Repeat interval</option>
+  </select>
+  <div id="repeatBox" style="display:none">
+    <label>Repeat every how many days?</label>
+    <input id="repeat" type="number" value="30" min="1">
+  </div>
+  <label id="dateLabel">Starting / last completed date</label><input id="date" type="date">
+  <label id="timeLabel">Time</label><input id="time" type="time">
   <button class="primary" onclick="saveTracker()">Save</button><button class="secondary" onclick="closeEdit()">Cancel</button>
 </div></div>
 
@@ -149,11 +157,22 @@ function render(){
  if(!data.tasks.length){list.innerHTML='<div class="muted">No trackers yet. Tap + to add one.</div>';return}
  data.tasks.forEach(task=>{
   const last=getLast(task),c=counts(task);let number="",label="";
-  if(task.type==="countdown"){const due=makeTimestamp(last.date,last.time)+Number(task.repeat||30)*86400000;const r=(due-Date.now())/3600000;if(r>=0){number=Math.floor(r/24);label="DAYS LEFT • "+Math.floor(r%24)+" HOURS"}else{const o=Math.abs(r);number=Math.floor(o/24);label="DAYS OVERDUE • "+Math.floor(o%24)+" HOURS"}}
-  else{const e=elapsedSince(last);number=Math.floor(e/24);label="DAYS SINCE • "+Math.floor(e%24)+" HOURS"}
+  if(task.type==="countdown_once"){
+    const due=makeTimestamp(task.startDate,task.startTime);
+    const r=(due-Date.now())/3600000;
+    if(r>=0){number=Math.floor(r/24);label="DAYS LEFT • "+Math.floor(r%24)+" HOURS"}
+    else{const o=Math.abs(r);number=Math.floor(o/24);label="DAYS PASSED • "+Math.floor(o%24)+" HOURS"}
+  } else if(task.type==="repeat" || task.type==="countdown"){
+    const due=makeTimestamp(last.date,last.time)+Number(task.repeat||30)*86400000;
+    const r=(due-Date.now())/3600000;
+    if(r>=0){number=Math.floor(r/24);label="DAYS LEFT • "+Math.floor(r%24)+" HOURS"}
+    else{const o=Math.abs(r);number=Math.floor(o/24);label="DAYS OVERDUE • "+Math.floor(o%24)+" HOURS"}
+  } else {
+    const e=elapsedSince(last);number=Math.floor(e/24);label="DAYS SINCE • "+Math.floor(e%24)+" HOURS"
+  }
   const ints=calculateIntervals(task),avg=ints.length?ints.reduce((a,b)=>a+b,0)/ints.length:null;
   const div=document.createElement("div");div.className="task";div.innerHTML=
-   '<div class="task-head"><div class="name">'+escapeHtml(task.name)+'</div><div class="pill">'+(task.type==="countdown"?"COUNTDOWN":"SINCE")+'</div></div>'+
+   '<div class="task-head"><div class="name">'+escapeHtml(task.name)+'</div><div class="pill">'+(task.type==="countdown_once"?"COUNTDOWN":((task.type==="repeat"||task.type==="countdown")?"REPEAT":"SINCE"))+'</div></div>'+
    '<div class="big">'+number+'</div><div class="muted">'+label+'</div>'+
    '<div class="small" style="margin-top:8px">Last: '+formatDateTime(last.date,last.time)+'<br>Average gap: '+(avg!=null?prettyGap(avg):"—")+'</div>'+
    '<div class="quickstats"><div class="q"><b>'+c.week+'</b><span>This week</span></div><div class="q"><b>'+c.month+'</b><span>This month</span></div><div class="q"><b>'+c.d30+'</b><span>Last 30 days</span></div></div>'+
@@ -161,8 +180,14 @@ function render(){
   list.appendChild(div)
  })
 }
-document.getElementById("addBtn").onclick=()=>{editingId=null;const n=nowParts();document.getElementById("formTitle").textContent="Add tracker";document.getElementById("name").value="";document.getElementById("type").value="since";document.getElementById("repeat").value="30";document.getElementById("date").value=n.date;document.getElementById("time").value=n.time;document.getElementById("repeatBox").style.display="none";document.getElementById("editModal").style.display="flex"}
-document.getElementById("type").onchange=function(){document.getElementById("repeatBox").style.display=this.value==="countdown"?"block":"none"}
+document.getElementById("addBtn").onclick=()=>{editingId=null;const n=nowParts();document.getElementById("formTitle").textContent="Add tracker";document.getElementById("name").value="";document.getElementById("type").value="since";document.getElementById("repeat").value="30";document.getElementById("date").value=n.date;document.getElementById("time").value=n.time;updateTypeFields();document.getElementById("editModal").style.display="flex"}
+function updateTypeFields(){
+ const type=document.getElementById("type").value;
+ document.getElementById("repeatBox").style.display=type==="repeat"?"block":"none";
+ document.getElementById("dateLabel").textContent=type==="countdown_once"?"Target date":"Starting / last completed date";
+ document.getElementById("timeLabel").textContent=type==="countdown_once"?"Target time":"Time";
+}
+document.getElementById("type").onchange=updateTypeFields
 function closeEdit(){document.getElementById("editModal").style.display="none"}
 function saveTracker(){const name=document.getElementById("name").value.trim();if(!name){alert("Enter a code name");return}const obj={id:editingId||String(Date.now()),name,type:document.getElementById("type").value,repeat:Number(document.getElementById("repeat").value||30),startDate:document.getElementById("date").value,startTime:document.getElementById("time").value,history:[]};if(editingId){const old=data.tasks.find(t=>t.id===editingId);obj.history=old.history||[];Object.assign(old,obj)}else data.tasks.push(obj);save();closeEdit()}
 function quickDone(id){addCurrentRecord(data.tasks.find(t=>t.id===id))}
@@ -189,7 +214,7 @@ function openPastRecord(){const n=nowParts();document.getElementById("pastDate")
 function closePastRecord(){document.getElementById("pastModal").style.display="none"}
 function savePastRecord(){const task=data.tasks.find(t=>t.id===currentId),date=document.getElementById("pastDate").value,time=document.getElementById("pastTime").value;if(!date||!time){alert("Choose both date and time");return}if(!task.history)task.history=[];task.history.push({date,time});save();closePastRecord();showDetails(currentId)}
 function closeDetails(){document.getElementById("detailModal").style.display="none"}
-function editCurrent(){const task=data.tasks.find(t=>t.id===currentId);editingId=task.id;document.getElementById("name").value=task.name;document.getElementById("type").value=task.type;document.getElementById("repeat").value=task.repeat||30;document.getElementById("date").value=task.startDate;document.getElementById("time").value=task.startTime||"12:00";document.getElementById("repeatBox").style.display=task.type==="countdown"?"block":"none";closeDetails();document.getElementById("editModal").style.display="flex"}
+function editCurrent(){const task=data.tasks.find(t=>t.id===currentId);editingId=task.id;document.getElementById("name").value=task.name;document.getElementById("type").value=(task.type==="countdown"?"repeat":task.type);document.getElementById("repeat").value=task.repeat||30;document.getElementById("date").value=task.startDate;document.getElementById("time").value=task.startTime||"12:00";updateTypeFields();closeDetails();document.getElementById("editModal").style.display="flex"}
 function deleteCurrent(){const task=data.tasks.find(t=>t.id===currentId);if(confirm("Delete "+task.name+" and all its history?")){data.tasks=data.tasks.filter(t=>t.id!==currentId);save();closeDetails()}}
 render()
 </script>
