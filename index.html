@@ -176,7 +176,19 @@ function prettyGap(hours){if(hours==null||isNaN(hours))return"—";const d=Math.
 function calculateIntervals(task){const e=getAllEvents(task),r=[];for(let i=1;i<e.length;i++)r.push(gapHours(e[i-1],e[i]));return r}
 function elapsedSince(last){return Math.max(0,(Date.now()-makeTimestamp(last.date,last.time))/3600000)}
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
-function recordDates(task){return(task.history||[]).map(x=>new Date(x.date+"T"+(x.time||"12:00")+":00"))}
+function recordDates(task){
+ const events=(task.history||[]).map(x=>new Date(x.date+"T"+(x.time||"12:00")+":00"));
+ if(task.type!=="countdown_once" && task.startDate){
+  events.push(new Date(task.startDate+"T"+(task.startTime||"12:00")+":00"));
+ }
+ const seen=new Set();
+ return events.filter(d=>{
+  const key=d.getTime();
+  if(seen.has(key)) return false;
+  seen.add(key);
+  return true;
+ });
+}
 function startOfWeek(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setHours(0,0,0,0);x.setDate(x.getDate()-day);return x}
 function countSince(task,from){return recordDates(task).filter(d=>d>=from&&d<=new Date()).length}
 function counts(task){const now=new Date(),week=startOfWeek(now),month=new Date(now.getFullYear(),now.getMonth(),1),d30=new Date(now.getTime()-30*86400000);return{week:countSince(task,week),month:countSince(task,month),d30:countSince(task,d30)}}
