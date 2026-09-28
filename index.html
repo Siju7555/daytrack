@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="DayTrack">
 <title>DayTrack</title>
+
 <style>
 body{
   margin:0;
@@ -15,18 +16,36 @@ body{
   color:white;
   padding:20px;
 }
+
 .wrap{max-width:700px;margin:auto}
+
 h1{margin:0 0 4px}
-.sub{color:#9ca8be;margin-bottom:20px}
+
+.sub{
+  color:#9ca8be;
+  margin-bottom:20px;
+}
+
 .task{
   background:#151c2f;
   border-radius:18px;
   padding:16px;
   margin-bottom:14px;
 }
-.name{font-size:20px;font-weight:700}
-.big{font-size:48px;font-weight:800;margin-top:14px}
+
+.name{
+  font-size:20px;
+  font-weight:700;
+}
+
+.big{
+  font-size:48px;
+  font-weight:800;
+  margin-top:14px;
+}
+
 .muted{color:#9ca8be}
+
 button{
   border:0;
   border-radius:12px;
@@ -36,9 +55,22 @@ button{
   margin-top:10px;
   margin-right:6px;
 }
-.primary{background:#6ea8fe;color:#07111f}
-.secondary{background:#222c45;color:white}
-.danger{background:#47232b;color:#ffb7b7}
+
+.primary{
+  background:#6ea8fe;
+  color:#07111f;
+}
+
+.secondary{
+  background:#222c45;
+  color:white;
+}
+
+.danger{
+  background:#47232b;
+  color:#ffb7b7;
+}
+
 #addBtn{
   position:fixed;
   right:20px;
@@ -48,6 +80,7 @@ button{
   border-radius:50%;
   font-size:28px;
 }
+
 .modal{
   position:fixed;
   inset:0;
@@ -56,14 +89,19 @@ button{
   align-items:center;
   justify-content:center;
   padding:18px;
+  z-index:10;
 }
+
 .box{
   width:100%;
   max-width:500px;
+  max-height:90vh;
+  overflow:auto;
   background:#151c2f;
   padding:18px;
   border-radius:18px;
 }
+
 input,select{
   width:100%;
   box-sizing:border-box;
@@ -75,25 +113,34 @@ input,select{
   margin:6px 0 12px;
   font-size:16px;
 }
+
 .history{
   border-top:1px solid #2d3850;
-  padding:10px 0;
+  padding:12px 0;
 }
+
 .stats{
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:10px;
   margin-top:14px;
 }
+
 .stat{
   background:#0b1020;
   padding:12px;
   border-radius:12px;
 }
-.stat b{font-size:21px}
-.small{font-size:12px;color:#9ca8be}
+
+.stat b{font-size:20px}
+
+.small{
+  font-size:12px;
+  color:#9ca8be;
+}
 </style>
 </head>
+
 <body>
 
 <div class="wrap">
@@ -104,8 +151,11 @@ input,select{
 
 <button id="addBtn" class="primary">+</button>
 
+<!-- ADD / EDIT TRACKER -->
+
 <div id="editModal" class="modal">
   <div class="box">
+
     <h2 id="formTitle">Add tracker</h2>
 
     <label>Code name</label>
@@ -113,7 +163,7 @@ input,select{
 
     <label>Type</label>
     <select id="type">
-      <option value="since">Days since</option>
+      <option value="since">Time since</option>
       <option value="countdown">Countdown</option>
     </select>
 
@@ -122,30 +172,62 @@ input,select{
       <input id="repeat" type="number" value="30" min="1">
     </div>
 
-    <label>Last completed / starting date</label>
+    <label>Starting / last completed date</label>
     <input id="date" type="date">
+
+    <label>Time</label>
+    <input id="time" type="time">
 
     <button class="primary" onclick="saveTracker()">Save</button>
     <button class="secondary" onclick="closeEdit()">Cancel</button>
+
   </div>
 </div>
 
+<!-- DETAILS -->
+
 <div id="detailModal" class="modal">
   <div class="box">
+
     <h2 id="detailTitle"></h2>
+
     <div id="stats" class="stats"></div>
+
+    <button class="primary" onclick="doneNow()">Done now</button>
+    <button class="secondary" onclick="openPastRecord()">Add past record</button>
 
     <h3>History</h3>
     <div id="history"></div>
 
-    <button class="secondary" onclick="editCurrent()">Edit</button>
+    <button class="secondary" onclick="editCurrent()">Edit tracker</button>
     <button class="danger" onclick="deleteCurrent()">Delete tracker</button>
     <button class="secondary" onclick="closeDetails()">Close</button>
+
+  </div>
+</div>
+
+<!-- PAST RECORD -->
+
+<div id="pastModal" class="modal">
+  <div class="box">
+
+    <h2>Add past record</h2>
+
+    <label>Date</label>
+    <input id="pastDate" type="date">
+
+    <label>Time</label>
+    <input id="pastTime" type="time">
+
+    <button class="primary" onclick="savePastRecord()">Save record</button>
+    <button class="secondary" onclick="closePastRecord()">Cancel</button>
+
   </div>
 </div>
 
 <script>
-const KEY="daytrack_private_v1";
+
+const KEY="daytrack_private_v2";
 
 let data=JSON.parse(localStorage.getItem(KEY)||'{"tasks":[]}');
 let editingId=null;
@@ -156,102 +238,132 @@ function save(){
   render();
 }
 
-function today(){
+function pad(n){
+  return String(n).padStart(2,"0");
+}
+
+function nowParts(){
   const d=new Date();
-  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+
+  return{
+    date:d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()),
+    time:pad(d.getHours())+":"+pad(d.getMinutes())
+  };
 }
 
-function parseDate(s){
-  return new Date(s+"T12:00:00");
+function makeTimestamp(date,time){
+  return new Date(date+"T"+(time||"12:00")+":00").getTime();
 }
 
-function daysBetween(a,b){
-  return Math.max(0,Math.floor((parseDate(b)-parseDate(a))/86400000));
-}
+function formatDateTime(date,time){
 
-function formatDate(s){
-  return parseDate(s).toLocaleDateString(undefined,{
+  const d=new Date(date+"T"+(time||"12:00")+":00");
+
+  return d.toLocaleString(undefined,{
     day:"2-digit",
     month:"short",
-    year:"numeric"
+    year:"numeric",
+    hour:"2-digit",
+    minute:"2-digit"
   });
+
 }
 
 function getLast(task){
+
   if(task.history && task.history.length){
-    return [...task.history].sort((a,b)=>b.date.localeCompare(a.date))[0].date;
+
+    return [...task.history]
+      .sort((a,b)=>makeTimestamp(b.date,b.time)-makeTimestamp(a.date,a.time))[0];
+
   }
-  return task.startDate;
+
+  return{
+    date:task.startDate,
+    time:task.startTime||"12:00"
+  };
+
 }
 
-function intervals(task){
-  let dates=(task.history||[]).map(x=>x.date);
-  if(task.startDate&&!dates.includes(task.startDate))dates.push(task.startDate);
-  dates.sort();
+function getAllEvents(task){
+
+  let events=(task.history||[]).map(x=>({
+    date:x.date,
+    time:x.time||"12:00"
+  }));
+
+  if(task.startDate){
+
+    events.push({
+      date:task.startDate,
+      time:task.startTime||"12:00"
+    });
+
+  }
+
+  return events.sort(
+    (a,b)=>makeTimestamp(a.date,a.time)-makeTimestamp(b.date,b.time)
+  );
+
+}
+
+function gapHours(a,b){
+
+  const ms=
+    makeTimestamp(b.date,b.time)
+    -
+    makeTimestamp(a.date,a.time);
+
+  return Math.max(0,ms/3600000);
+
+}
+
+function prettyGap(hours){
+
+  if(hours===null || hours===undefined || isNaN(hours)){
+    return "—";
+  }
+
+  const days=Math.floor(hours/24);
+  const hrs=Math.floor(hours%24);
+
+  if(days>0 && hrs>0){
+    return days+"d "+hrs+"h";
+  }
+
+  if(days>0){
+    return days+"d";
+  }
+
+  return hrs+"h";
+
+}
+
+function calculateIntervals(task){
+
+  const events=getAllEvents(task);
 
   let result=[];
-  for(let i=1;i<dates.length;i++){
-    result.push(daysBetween(dates[i-1],dates[i]));
+
+  for(let i=1;i<events.length;i++){
+    result.push(gapHours(events[i-1],events[i]));
   }
+
   return result;
+
 }
 
-function render(){
-  const list=document.getElementById("list");
-  list.innerHTML="";
+function elapsedSince(last){
 
-  if(!data.tasks.length){
-    list.innerHTML='<div class="muted">No trackers yet. Tap + to add one.</div>';
-    return;
-  }
+  const now=new Date().getTime();
+  const lastMs=makeTimestamp(last.date,last.time);
 
-  data.tasks.forEach(task=>{
-    const last=getLast(task);
-    let number;
-    let label;
+  return Math.max(0,(now-lastMs)/3600000);
 
-    if(task.type==="countdown"){
-      let due=parseDate(last);
-      due.setDate(due.getDate()+Number(task.repeat||30));
-
-      const remaining=Math.ceil((due-parseDate(today()))/86400000);
-
-      if(remaining>=0){
-        number=remaining;
-        label="DAYS LEFT";
-      }else{
-        number=Math.abs(remaining);
-        label="DAYS OVERDUE";
-      }
-    }else{
-      number=daysBetween(last,today());
-      label="DAYS SINCE";
-    }
-
-    const ints=intervals(task);
-    const avg=ints.length
-      ?(ints.reduce((a,b)=>a+b,0)/ints.length).toFixed(1)
-      :"—";
-
-    const div=document.createElement("div");
-    div.className="task";
-
-    div.innerHTML=`
-      <div class="name">${escapeHtml(task.name)}</div>
-      <div class="big">${number}</div>
-      <div class="muted">${label}</div>
-      <div class="small" style="margin-top:8px">
-        Last: ${formatDate(last)} • Average gap: ${avg}
-      </div>
-      <button class="primary" onclick="doneToday('${task.id}')">Done today</button>
-      <button class="secondary" onclick="showDetails('${task.id}')">Details</button>
-    `;
-
-    list.appendChild(div);
-  });
 }
 
 function escapeHtml(s){
+
   return s.replace(/[&<>"']/g,c=>({
     "&":"&amp;",
     "<":"&lt;",
@@ -259,151 +371,458 @@ function escapeHtml(s){
     '"':"&quot;",
     "'":"&#039;"
   }[c]));
+
+}
+
+function render(){
+
+  const list=document.getElementById("list");
+  list.innerHTML="";
+
+  if(!data.tasks.length){
+
+    list.innerHTML=
+      '<div class="muted">No trackers yet. Tap + to add one.</div>';
+
+    return;
+
+  }
+
+  data.tasks.forEach(task=>{
+
+    const last=getLast(task);
+
+    let number="";
+    let label="";
+
+    if(task.type==="countdown"){
+
+      const due=
+        makeTimestamp(last.date,last.time)
+        +
+        Number(task.repeat||30)*86400000;
+
+      const remaining=(due-Date.now())/3600000;
+
+      if(remaining>=0){
+
+        const days=Math.floor(remaining/24);
+        const hours=Math.floor(remaining%24);
+
+        number=days;
+        label=`DAYS LEFT • ${hours} HOURS`;
+
+      }else{
+
+        const overdue=Math.abs(remaining);
+        const days=Math.floor(overdue/24);
+        const hours=Math.floor(overdue%24);
+
+        number=days;
+        label=`DAYS OVERDUE • ${hours} HOURS`;
+
+      }
+
+    }else{
+
+      const elapsed=elapsedSince(last);
+
+      number=Math.floor(elapsed/24);
+
+      label=
+        "DAYS SINCE • "+
+        Math.floor(elapsed%24)+
+        " HOURS";
+
+    }
+
+    const ints=calculateIntervals(task);
+
+    const avg=
+      ints.length
+      ?ints.reduce((a,b)=>a+b,0)/ints.length
+      :null;
+
+    const div=document.createElement("div");
+
+    div.className="task";
+
+    div.innerHTML=`
+
+      <div class="name">${escapeHtml(task.name)}</div>
+
+      <div class="big">${number}</div>
+
+      <div class="muted">${label}</div>
+
+      <div class="small" style="margin-top:8px">
+
+        Last:
+        ${formatDateTime(last.date,last.time)}
+
+        <br>
+
+        Average gap:
+        ${avg!==null?prettyGap(avg):"—"}
+
+      </div>
+
+      <button
+        class="primary"
+        onclick="quickDone('${task.id}')">
+
+        Done now
+
+      </button>
+
+      <button
+        class="secondary"
+        onclick="showDetails('${task.id}')">
+
+        Details
+
+      </button>
+
+    `;
+
+    list.appendChild(div);
+
+  });
+
 }
 
 document.getElementById("addBtn").onclick=()=>{
+
   editingId=null;
+
+  const n=nowParts();
+
   document.getElementById("formTitle").textContent="Add tracker";
   document.getElementById("name").value="";
   document.getElementById("type").value="since";
   document.getElementById("repeat").value="30";
-  document.getElementById("date").value=today();
+  document.getElementById("date").value=n.date;
+  document.getElementById("time").value=n.time;
+
   document.getElementById("repeatBox").style.display="none";
+
   document.getElementById("editModal").style.display="flex";
+
 };
 
 document.getElementById("type").onchange=function(){
+
   document.getElementById("repeatBox").style.display=
-    this.value==="countdown"?"block":"none";
+    this.value==="countdown"
+    ?"block"
+    :"none";
+
 };
 
 function closeEdit(){
+
   document.getElementById("editModal").style.display="none";
+
 }
 
 function saveTracker(){
+
   const name=document.getElementById("name").value.trim();
+
   if(!name){
+
     alert("Enter a code name");
     return;
+
   }
 
   const obj={
+
     id:editingId||String(Date.now()),
+
     name,
+
     type:document.getElementById("type").value,
-    repeat:Number(document.getElementById("repeat").value||30),
-    startDate:document.getElementById("date").value||today(),
+
+    repeat:Number(
+      document.getElementById("repeat").value||30
+    ),
+
+    startDate:
+      document.getElementById("date").value,
+
+    startTime:
+      document.getElementById("time").value,
+
     history:[]
+
   };
 
   if(editingId){
+
     const old=data.tasks.find(t=>t.id===editingId);
+
     obj.history=old.history||[];
+
     Object.assign(old,obj);
+
   }else{
+
     data.tasks.push(obj);
+
   }
 
   save();
   closeEdit();
+
 }
 
-function doneToday(id){
-  const task=data.tasks.find(t=>t.id===id);
-  if(!task.history)task.history=[];
+function quickDone(id){
 
-  if(task.history.some(x=>x.date===today())){
-    if(!confirm("Already recorded today. Record again?"))return;
+  const task=data.tasks.find(t=>t.id===id);
+
+  addCurrentRecord(task);
+
+}
+
+function doneNow(){
+
+  const task=data.tasks.find(t=>t.id===currentId);
+
+  addCurrentRecord(task);
+
+  showDetails(currentId);
+
+}
+
+function addCurrentRecord(task){
+
+  const n=nowParts();
+
+  if(!task.history){
+    task.history=[];
   }
 
   task.history.push({
-    date:today(),
-    time:new Date().toISOString()
+    date:n.date,
+    time:n.time
   });
 
   save();
+
 }
 
 function showDetails(id){
+
   currentId=id;
+
   const task=data.tasks.find(t=>t.id===id);
 
-  document.getElementById("detailTitle").textContent=task.name;
+  document.getElementById("detailTitle").textContent=
+    task.name;
 
-  const ints=intervals(task);
+  const ints=calculateIntervals(task);
 
-  const avg=ints.length
-    ?(ints.reduce((a,b)=>a+b,0)/ints.length).toFixed(1)
-    :"—";
+  const avg=
+    ints.length
+    ?ints.reduce((a,b)=>a+b,0)/ints.length
+    :null;
 
-  const shortest=ints.length?Math.min(...ints):"—";
-  const longest=ints.length?Math.max(...ints):"—";
+  const shortest=
+    ints.length
+    ?Math.min(...ints)
+    :null;
+
+  const longest=
+    ints.length
+    ?Math.max(...ints)
+    :null;
 
   document.getElementById("stats").innerHTML=`
+
     <div class="stat">
+
       <b>${(task.history||[]).length}</b>
-      <div class="small">Records</div>
+
+      <div class="small">
+        Records
+      </div>
+
     </div>
+
     <div class="stat">
-      <b>${avg}</b>
-      <div class="small">Average gap</div>
+
+      <b>${avg!==null?prettyGap(avg):"—"}</b>
+
+      <div class="small">
+        Average gap
+      </div>
+
     </div>
+
     <div class="stat">
-      <b>${shortest}</b>
-      <div class="small">Shortest gap</div>
+
+      <b>${shortest!==null?prettyGap(shortest):"—"}</b>
+
+      <div class="small">
+        Shortest gap
+      </div>
+
     </div>
+
     <div class="stat">
-      <b>${longest}</b>
-      <div class="small">Longest gap</div>
+
+      <b>${longest!==null?prettyGap(longest):"—"}</b>
+
+      <div class="small">
+        Longest gap
+      </div>
+
     </div>
+
   `;
 
   const history=document.getElementById("history");
+
   history.innerHTML="";
 
-  const rows=[...(task.history||[])].sort((a,b)=>b.date.localeCompare(a.date));
+  const rows=[...(task.history||[])]
+    .sort(
+      (a,b)=>
+      makeTimestamp(b.date,b.time)
+      -
+      makeTimestamp(a.date,a.time)
+    );
 
   if(!rows.length){
-    history.innerHTML='<div class="muted">No records yet.</div>';
+
+    history.innerHTML=
+      '<div class="muted">No records yet.</div>';
+
   }
 
   rows.forEach((item,index)=>{
+
     const next=rows[index+1];
 
+    let gap="";
+
+    if(next){
+
+      gap=
+        " • "+
+        prettyGap(
+          gapHours(next,item)
+        );
+
+    }
+
+    const originalIndex=
+      task.history.indexOf(item);
+
     const div=document.createElement("div");
+
     div.className="history";
 
     div.innerHTML=`
-      ${formatDate(item.date)}
-      ${next
-        ?'<span class="small"> • '+daysBetween(next.date,item.date)+' day gap</span>'
-        :""
-      }
-      <button class="danger" style="float:right;margin:0;padding:5px 8px"
-      onclick="deleteRecord('${task.id}',${task.history.indexOf(item)})">Delete</button>
+
+      ${formatDateTime(item.date,item.time)}
+
+      <span class="small">
+        ${gap}
+      </span>
+
+      <button
+        class="danger"
+        style="float:right;margin:0;padding:5px 8px"
+        onclick="deleteRecord('${task.id}',${originalIndex})">
+
+        Delete
+
+      </button>
+
     `;
 
     history.appendChild(div);
+
   });
 
   document.getElementById("detailModal").style.display="flex";
+
 }
 
 function deleteRecord(id,index){
+
   const task=data.tasks.find(t=>t.id===id);
+
   if(confirm("Delete this record?")){
+
     task.history.splice(index,1);
+
     save();
+
     showDetails(id);
+
   }
+
+}
+
+function openPastRecord(){
+
+  const n=nowParts();
+
+  document.getElementById("pastDate").value=n.date;
+  document.getElementById("pastTime").value=n.time;
+
+  document.getElementById("pastModal").style.display="flex";
+
+}
+
+function closePastRecord(){
+
+  document.getElementById("pastModal").style.display="none";
+
+}
+
+function savePastRecord(){
+
+  const task=data.tasks.find(t=>t.id===currentId);
+
+  const date=document.getElementById("pastDate").value;
+  const time=document.getElementById("pastTime").value;
+
+  if(!date || !time){
+
+    alert("Choose both date and time");
+    return;
+
+  }
+
+  if(!task.history){
+    task.history=[];
+  }
+
+  task.history.push({
+    date,
+    time
+  });
+
+  save();
+
+  closePastRecord();
+
+  showDetails(currentId);
+
 }
 
 function closeDetails(){
+
   document.getElementById("detailModal").style.display="none";
+
 }
 
 function editCurrent(){
+
   const task=data.tasks.find(t=>t.id===currentId);
 
   editingId=task.id;
@@ -412,25 +831,38 @@ function editCurrent(){
   document.getElementById("type").value=task.type;
   document.getElementById("repeat").value=task.repeat||30;
   document.getElementById("date").value=task.startDate;
+  document.getElementById("time").value=task.startTime||"12:00";
 
   document.getElementById("repeatBox").style.display=
-    task.type==="countdown"?"block":"none";
+    task.type==="countdown"
+    ?"block"
+    :"none";
 
   closeDetails();
+
   document.getElementById("editModal").style.display="flex";
+
 }
 
 function deleteCurrent(){
+
   const task=data.tasks.find(t=>t.id===currentId);
 
   if(confirm("Delete "+task.name+" and all its history?")){
-    data.tasks=data.tasks.filter(t=>t.id!==currentId);
+
+    data.tasks=
+      data.tasks.filter(t=>t.id!==currentId);
+
     save();
+
     closeDetails();
+
   }
+
 }
 
 render();
+
 </script>
 
 </body>
