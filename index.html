@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="DayTrack">
+<title>DayTrack</title>
+<style>
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:#0b1020;
+  color:white;
+  padding:20px;
+}
+.wrap{max-width:700px;margin:auto}
+h1{margin:0 0 4px}
+.sub{color:#9ca8be;margin-bottom:20px}
+.task{
+  background:#151c2f;
+  border-radius:18px;
+  padding:16px;
+  margin-bottom:14px;
+}
+.name{font-size:20px;font-weight:700}
+.big{font-size:48px;font-weight:800;margin-top:14px}
+.muted{color:#9ca8be}
+button{
+  border:0;
+  border-radius:12px;
+  padding:12px 14px;
+  font-weight:700;
+  font-size:15px;
+  margin-top:10px;
+  margin-right:6px;
+}
+.primary{background:#6ea8fe;color:#07111f}
+.secondary{background:#222c45;color:white}
+.danger{background:#47232b;color:#ffb7b7}
+#addBtn{
+  position:fixed;
+  right:20px;
+  bottom:20px;
+  width:58px;
+  height:58px;
+  border-radius:50%;
+  font-size:28px;
+}
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.75);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+}
+.box{
+  width:100%;
+  max-width:500px;
+  background:#151c2f;
+  padding:18px;
+  border-radius:18px;
+}
+input,select{
+  width:100%;
+  box-sizing:border-box;
+  background:#0b1020;
+  color:white;
+  border:1px solid #34405b;
+  border-radius:10px;
+  padding:12px;
+  margin:6px 0 12px;
+  font-size:16px;
+}
+.history{
+  border-top:1px solid #2d3850;
+  padding:10px 0;
+}
+.stats{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:14px;
+}
+.stat{
+  background:#0b1020;
+  padding:12px;
+  border-radius:12px;
+}
+.stat b{font-size:21px}
+.small{font-size:12px;color:#9ca8be}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <h1>DayTrack</h1>
+  <div class="sub">Private tracker using code names</div>
+  <div id="list"></div>
+</div>
+
+<button id="addBtn" class="primary">+</button>
+
+<div id="editModal" class="modal">
+  <div class="box">
+    <h2 id="formTitle">Add tracker</h2>
+
+    <label>Code name</label>
+    <input id="name" placeholder="Example: A1, Blue, K2">
+
+    <label>Type</label>
+    <select id="type">
+      <option value="since">Days since</option>
+      <option value="countdown">Countdown</option>
+    </select>
+
+    <div id="repeatBox" style="display:none">
+      <label>Repeat every how many days?</label>
+      <input id="repeat" type="number" value="30" min="1">
+    </div>
+
+    <label>Last completed / starting date</label>
+    <input id="date" type="date">
+
+    <button class="primary" onclick="saveTracker()">Save</button>
+    <button class="secondary" onclick="closeEdit()">Cancel</button>
+  </div>
+</div>
+
+<div id="detailModal" class="modal">
+  <div class="box">
+    <h2 id="detailTitle"></h2>
+    <div id="stats" class="stats"></div>
+
+    <h3>History</h3>
+    <div id="history"></div>
+
+    <button class="secondary" onclick="editCurrent()">Edit</button>
+    <button class="danger" onclick="deleteCurrent()">Delete tracker</button>
+    <button class="secondary" onclick="closeDetails()">Close</button>
+  </div>
+</div>
+
+<script>
+const KEY="daytrack_private_v1";
+
+let data=JSON.parse(localStorage.getItem(KEY)||'{"tasks":[]}');
+let editingId=null;
+let currentId=null;
+
+function save(){
+  localStorage.setItem(KEY,JSON.stringify(data));
+  render();
+}
+
+function today(){
+  const d=new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+
+function parseDate(s){
+  return new Date(s+"T12:00:00");
+}
+
+function daysBetween(a,b){
+  return Math.max(0,Math.floor((parseDate(b)-parseDate(a))/86400000));
+}
+
+function formatDate(s){
+  return parseDate(s).toLocaleDateString(undefined,{
+    day:"2-digit",
+    month:"short",
+    year:"numeric"
+  });
+}
+
+function getLast(task){
+  if(task.history && task.history.length){
+    return [...task.history].sort((a,b)=>b.date.localeCompare(a.date))[0].date;
+  }
+  return task.startDate;
+}
+
+function intervals(task){
+  let dates=(task.history||[]).map(x=>x.date);
+  if(task.startDate&&!dates.includes(task.startDate))dates.push(task.startDate);
+  dates.sort();
+
+  let result=[];
+  for(let i=1;i<dates.length;i++){
+    result.push(daysBetween(dates[i-1],dates[i]));
+  }
+  return result;
+}
+
+function render(){
+  const list=document.getElementById("list");
+  list.innerHTML="";
+
+  if(!data.tasks.length){
+    list.innerHTML='<div class="muted">No trackers yet. Tap + to add one.</div>';
+    return;
+  }
+
+  data.tasks.forEach(task=>{
+    const last=getLast(task);
+    let number;
+    let label;
+
+    if(task.type==="countdown"){
+      let due=parseDate(last);
+      due.setDate(due.getDate()+Number(task.repeat||30));
+
+      const remaining=Math.ceil((due-parseDate(today()))/86400000);
+
+      if(remaining>=0){
+        number=remaining;
+        label="DAYS LEFT";
+      }else{
+        number=Math.abs(remaining);
+        label="DAYS OVERDUE";
+      }
+    }else{
+      number=daysBetween(last,today());
+      label="DAYS SINCE";
+    }
+
+    const ints=intervals(task);
+    const avg=ints.length
+      ?(ints.reduce((a,b)=>a+b,0)/ints.length).toFixed(1)
+      :"—";
+
+    const div=document.createElement("div");
+    div.className="task";
+
+    div.innerHTML=`
+      <div class="name">${escapeHtml(task.name)}</div>
+      <div class="big">${number}</div>
+      <div class="muted">${label}</div>
+      <div class="small" style="margin-top:8px">
+        Last: ${formatDate(last)} • Average gap: ${avg}
+      </div>
+      <button class="primary" onclick="doneToday('${task.id}')">Done today</button>
+      <button class="secondary" onclick="showDetails('${task.id}')">Details</button>
+    `;
+
+    list.appendChild(div);
+  });
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g,c=>({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#039;"
+  }[c]));
+}
+
+document.getElementById("addBtn").onclick=()=>{
+  editingId=null;
+  document.getElementById("formTitle").textContent="Add tracker";
+  document.getElementById("name").value="";
+  document.getElementById("type").value="since";
+  document.getElementById("repeat").value="30";
+  document.getElementById("date").value=today();
+  document.getElementById("repeatBox").style.display="none";
+  document.getElementById("editModal").style.display="flex";
+};
+
+document.getElementById("type").onchange=function(){
+  document.getElementById("repeatBox").style.display=
+    this.value==="countdown"?"block":"none";
+};
+
+function closeEdit(){
+  document.getElementById("editModal").style.display="none";
+}
+
+function saveTracker(){
+  const name=document.getElementById("name").value.trim();
+  if(!name){
+    alert("Enter a code name");
+    return;
+  }
+
+  const obj={
+    id:editingId||String(Date.now()),
+    name,
+    type:document.getElementById("type").value,
+    repeat:Number(document.getElementById("repeat").value||30),
+    startDate:document.getElementById("date").value||today(),
+    history:[]
+  };
+
+  if(editingId){
+    const old=data.tasks.find(t=>t.id===editingId);
+    obj.history=old.history||[];
+    Object.assign(old,obj);
+  }else{
+    data.tasks.push(obj);
+  }
+
+  save();
+  closeEdit();
+}
+
+function doneToday(id){
+  const task=data.tasks.find(t=>t.id===id);
+  if(!task.history)task.history=[];
+
+  if(task.history.some(x=>x.date===today())){
+    if(!confirm("Already recorded today. Record again?"))return;
+  }
+
+  task.history.push({
+    date:today(),
+    time:new Date().toISOString()
+  });
+
+  save();
+}
+
+function showDetails(id){
+  currentId=id;
+  const task=data.tasks.find(t=>t.id===id);
+
+  document.getElementById("detailTitle").textContent=task.name;
+
+  const ints=intervals(task);
+
+  const avg=ints.length
+    ?(ints.reduce((a,b)=>a+b,0)/ints.length).toFixed(1)
+    :"—";
+
+  const shortest=ints.length?Math.min(...ints):"—";
+  const longest=ints.length?Math.max(...ints):"—";
+
+  document.getElementById("stats").innerHTML=`
+    <div class="stat">
+      <b>${(task.history||[]).length}</b>
+      <div class="small">Records</div>
+    </div>
+    <div class="stat">
+      <b>${avg}</b>
+      <div class="small">Average gap</div>
+    </div>
+    <div class="stat">
+      <b>${shortest}</b>
+      <div class="small">Shortest gap</div>
+    </div>
+    <div class="stat">
+      <b>${longest}</b>
+      <div class="small">Longest gap</div>
+    </div>
+  `;
+
+  const history=document.getElementById("history");
+  history.innerHTML="";
+
+  const rows=[...(task.history||[])].sort((a,b)=>b.date.localeCompare(a.date));
+
+  if(!rows.length){
+    history.innerHTML='<div class="muted">No records yet.</div>';
+  }
+
+  rows.forEach((item,index)=>{
+    const next=rows[index+1];
+
+    const div=document.createElement("div");
+    div.className="history";
+
+    div.innerHTML=`
+      ${formatDate(item.date)}
+      ${next
+        ?'<span class="small"> • '+daysBetween(next.date,item.date)+' day gap</span>'
+        :""
+      }
+      <button class="danger" style="float:right;margin:0;padding:5px 8px"
+      onclick="deleteRecord('${task.id}',${task.history.indexOf(item)})">Delete</button>
+    `;
+
+    history.appendChild(div);
+  });
+
+  document.getElementById("detailModal").style.display="flex";
+}
+
+function deleteRecord(id,index){
+  const task=data.tasks.find(t=>t.id===id);
+  if(confirm("Delete this record?")){
+    task.history.splice(index,1);
+    save();
+    showDetails(id);
+  }
+}
+
+function closeDetails(){
+  document.getElementById("detailModal").style.display="none";
+}
+
+function editCurrent(){
+  const task=data.tasks.find(t=>t.id===currentId);
+
+  editingId=task.id;
+
+  document.getElementById("name").value=task.name;
+  document.getElementById("type").value=task.type;
+  document.getElementById("repeat").value=task.repeat||30;
+  document.getElementById("date").value=task.startDate;
+
+  document.getElementById("repeatBox").style.display=
+    task.type==="countdown"?"block":"none";
+
+  closeDetails();
+  document.getElementById("editModal").style.display="flex";
+}
+
+function deleteCurrent(){
+  const task=data.tasks.find(t=>t.id===currentId);
+
+  if(confirm("Delete "+task.name+" and all its history?")){
+    data.tasks=data.tasks.filter(t=>t.id!==currentId);
+    save();
+    closeDetails();
+  }
+}
+
+render();
+</script>
+
+</body>
+</html>
