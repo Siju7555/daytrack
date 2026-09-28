@@ -29,6 +29,9 @@ button{border:0;border-radius:13px;padding:12px 14px;font-weight:750;font-size:1
 .box{width:100%;max-width:540px;max-height:90vh;overflow:auto;background:#151c2f;padding:18px;border:1px solid var(--line);border-radius:22px}
 label{display:block;font-size:13px;color:var(--muted);margin-top:8px}
 input,select{width:100%;background:#0b1020;color:white;border:1px solid #34405b;border-radius:11px;padding:12px;margin:6px 0 12px;font-size:16px}
+.checkrow{display:flex;align-items:center;gap:10px;background:#0b1020;border:1px solid #34405b;border-radius:11px;padding:12px;margin:6px 0 12px}
+.checkrow input{width:20px;height:20px;min-height:20px;margin:0}
+.checkrow label{margin:0;color:white;flex:1}
 .history{border-top:1px solid #2d3850;padding:12px 0;min-height:42px}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.stat{background:#0b1020;padding:12px;border-radius:14px;border:1px solid #24314b}.stat b{font-size:20px;display:block}.stat span{font-size:11px;color:var(--muted)}
 .section-title{margin:22px 0 10px;font-size:15px;color:#d7e0f1}
@@ -110,7 +113,10 @@ input,select{
 </head>
 <body>
 <div class="wrap">
-  <div class="header"><div><h1>DayTrack</h1><div class="sub">Private tracker using code names</div></div></div>
+  <div class="header">
+    <div><h1>DayTrack</h1><div class="sub">Private tracker using code names</div></div>
+    <button id="syncWidgetBtn" class="secondary" style="margin:0">Sync widget</button>
+  </div>
   <div id="list"></div>
 </div>
 <button id="addBtn" class="primary">+</button>
@@ -130,6 +136,10 @@ input,select{
   </div>
   <label id="dateLabel">Starting / last completed date</label><input id="date" type="date">
   <label id="timeLabel">Time</label><input id="time" type="time">
+  <div class="checkrow">
+    <input id="showOnWidget" type="checkbox">
+    <label for="showOnWidget">Show this code name on Home Screen widget</label>
+  </div>
   <button class="primary" onclick="saveTracker()">Save</button><button class="secondary" onclick="closeEdit()">Cancel</button>
 </div></div>
 
@@ -268,7 +278,7 @@ function render(){
   list.appendChild(div)
  })
 }
-document.getElementById("addBtn").onclick=()=>{editingId=null;const n=nowParts();document.getElementById("formTitle").textContent="Add tracker";document.getElementById("name").value="";document.getElementById("type").value="since";document.getElementById("repeat").value="30";document.getElementById("date").value=n.date;document.getElementById("time").value=n.time;updateTypeFields();document.getElementById("editModal").style.display="flex"}
+document.getElementById("addBtn").onclick=()=>{editingId=null;const n=nowParts();document.getElementById("formTitle").textContent="Add tracker";document.getElementById("name").value="";document.getElementById("type").value="since";document.getElementById("repeat").value="30";document.getElementById("date").value=n.date;document.getElementById("time").value=n.time;document.getElementById("showOnWidget").checked=false;updateTypeFields();document.getElementById("editModal").style.display="flex"}
 function updateTypeFields(){
  const type=document.getElementById("type").value;
  document.getElementById("repeatBox").style.display=type==="repeat"?"block":"none";
@@ -277,7 +287,7 @@ function updateTypeFields(){
 }
 document.getElementById("type").onchange=updateTypeFields
 function closeEdit(){document.getElementById("editModal").style.display="none"}
-function saveTracker(){const name=document.getElementById("name").value.trim();if(!name){alert("Enter a code name");return}const obj={id:editingId||String(Date.now()),name,type:document.getElementById("type").value,repeat:Number(document.getElementById("repeat").value||30),startDate:document.getElementById("date").value,startTime:document.getElementById("time").value,history:[]};if(editingId){const old=data.tasks.find(t=>t.id===editingId);obj.history=old.history||[];Object.assign(old,obj)}else data.tasks.push(obj);save();closeEdit()}
+function saveTracker(){const name=document.getElementById("name").value.trim();if(!name){alert("Enter a code name");return}const obj={id:editingId||String(Date.now()),name,type:document.getElementById("type").value,repeat:Number(document.getElementById("repeat").value||30),startDate:document.getElementById("date").value,startTime:document.getElementById("time").value,showOnWidget:document.getElementById("showOnWidget").checked,history:[]};if(editingId){const old=data.tasks.find(t=>t.id===editingId);obj.history=old.history||[];Object.assign(old,obj)}else data.tasks.push(obj);save();closeEdit()}
 function quickDone(id){addCurrentRecord(data.tasks.find(t=>t.id===id))}
 function doneNow(){addCurrentRecord(data.tasks.find(t=>t.id===currentId));showDetails(currentId)}
 function addCurrentRecord(task){const n=nowParts();if(!task.history)task.history=[];task.history.push({date:n.date,time:n.time});save()}
@@ -302,8 +312,39 @@ function openPastRecord(){const n=nowParts();document.getElementById("pastDate")
 function closePastRecord(){document.getElementById("pastModal").style.display="none"}
 function savePastRecord(){const task=data.tasks.find(t=>t.id===currentId),date=document.getElementById("pastDate").value,time=document.getElementById("pastTime").value;if(!date||!time){alert("Choose both date and time");return}if(!task.history)task.history=[];task.history.push({date,time});save();closePastRecord();showDetails(currentId)}
 function closeDetails(){document.getElementById("detailModal").style.display="none"}
-function editCurrent(){const task=data.tasks.find(t=>t.id===currentId);editingId=task.id;document.getElementById("name").value=task.name;document.getElementById("type").value=(task.type==="countdown"?"repeat":task.type);document.getElementById("repeat").value=task.repeat||30;document.getElementById("date").value=task.startDate;document.getElementById("time").value=task.startTime||"12:00";updateTypeFields();closeDetails();document.getElementById("editModal").style.display="flex"}
+function editCurrent(){const task=data.tasks.find(t=>t.id===currentId);editingId=task.id;document.getElementById("name").value=task.name;document.getElementById("type").value=(task.type==="countdown"?"repeat":task.type);document.getElementById("repeat").value=task.repeat||30;document.getElementById("date").value=task.startDate;document.getElementById("time").value=task.startTime||"12:00";document.getElementById("showOnWidget").checked=!!task.showOnWidget;updateTypeFields();closeDetails();document.getElementById("editModal").style.display="flex"}
 function deleteCurrent(){const task=data.tasks.find(t=>t.id===currentId);if(confirm("Delete "+task.name+" and all its history?")){data.tasks=data.tasks.filter(t=>t.id!==currentId);save();closeDetails()}}
+
+async function syncWidget(){
+ const selected=data.tasks.filter(t=>t.showOnWidget);
+ if(!selected.length){
+  alert("Edit at least one tracker and turn on ‘Show this code name on Home Screen widget’.");
+  return;
+ }
+ const payload={
+  version:1,
+  updatedAt:new Date().toISOString(),
+  tasks:selected.map(t=>{
+    const last=getLast(t);
+    return {
+      name:t.name,
+      type:t.type,
+      startDate:t.startDate,
+      startTime:t.startTime||"12:00",
+      lastDate:last.date,
+      lastTime:last.time||"12:00",
+      repeat:Number(t.repeat||30)
+    };
+  })
+ };
+ try{
+  await navigator.clipboard.writeText("DAYTRACK_WIDGET:"+JSON.stringify(payload));
+  window.location.href="scriptable:///run/DayTrackWidget";
+ }catch(e){
+  alert("Could not copy widget data. Open DayTrack in Safari and try Sync widget again.");
+ }
+}
+document.getElementById("syncWidgetBtn").onclick=syncWidget;
 render()
 </script>
 </body>
