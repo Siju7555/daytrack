@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#0b1020">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="DayTrack">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icon.svg">
 <title>DayTrack</title>
 <style>
 :root{--bg:#0b1020;--card:#151c2f;--card2:#0f1728;--text:#fff;--muted:#9ca8be;--line:#2b3854;--accent:#6ea8fe;--danger:#47232b}
@@ -30,6 +35,77 @@ input,select{width:100%;background:#0b1020;color:white;border:1px solid #34405b;
 .chart{display:flex;align-items:flex-end;gap:8px;height:150px;padding:12px 8px 4px;background:#0b1020;border:1px solid #24314b;border-radius:14px}
 .bar-wrap{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px}.bar{width:70%;min-height:3px;background:#6ea8fe;border-radius:7px 7px 3px 3px}.bar-count{font-size:11px;color:#dbe6fb}.bar-label{font-size:10px;color:var(--muted)}
 .actions{display:flex;flex-wrap:wrap;gap:4px}
+/* iPhone / installed web-app refinements */
+html{
+  background:#0b1020;
+  -webkit-text-size-adjust:100%;
+  overscroll-behavior:none;
+}
+body{
+  min-height:100dvh;
+  padding-top:max(18px,env(safe-area-inset-top));
+  padding-left:max(16px,env(safe-area-inset-left));
+  padding-right:max(16px,env(safe-area-inset-right));
+  -webkit-tap-highlight-color:transparent;
+  overscroll-behavior-y:contain;
+}
+button,input,select{font-family:inherit}
+button{
+  min-height:44px;
+  touch-action:manipulation;
+  -webkit-user-select:none;
+  user-select:none;
+}
+input,select{
+  min-height:48px;
+  font-size:17px;
+}
+.task{overflow:hidden}
+.actions button{flex:1 1 auto}
+#addBtn{
+  width:60px;
+  height:60px;
+  margin:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+}
+@media (max-width:600px){
+  body{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+  .wrap{max-width:none}
+  .header{margin-top:2px;margin-bottom:16px}
+  h1{font-size:28px}
+  .task{border-radius:20px;padding:16px;margin-bottom:12px}
+  .big{font-size:50px}
+  .quickstats{gap:7px}
+  .q{padding:9px 5px}
+  .q b{font-size:17px}
+  .q span{font-size:10px}
+  .modal{
+    align-items:flex-end;
+    padding:0;
+  }
+  .box{
+    max-width:none;
+    width:100%;
+    max-height:calc(92dvh - env(safe-area-inset-top));
+    border-radius:24px 24px 0 0;
+    border-left:0;
+    border-right:0;
+    border-bottom:0;
+    padding:20px 16px calc(18px + env(safe-area-inset-bottom));
+    box-shadow:0 -20px 60px rgba(0,0,0,.35);
+  }
+  .box h2{margin-top:2px}
+  .chart{gap:4px;padding-left:5px;padding-right:5px}
+  .bar-label{font-size:9px}
+  .history{font-size:14px}
+  .history .danger{min-height:32px}
+}
+@media (display-mode:standalone){
+  .sub::after{content:" • App mode"}
+}
 </style>
 </head>
 <body>
